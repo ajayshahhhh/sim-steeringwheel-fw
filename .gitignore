@@ -114,3 +114,5 @@ build/
 *.bin
 *.hex
 *.map
+
+.DS_Store
