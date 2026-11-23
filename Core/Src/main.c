@@ -104,6 +104,7 @@ int main(void)
     USBD_HID_SendReport(&hUsbDeviceFS, &report, 1);
     HAL_Delay(500);
     /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
