@@ -22,7 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "usbd_hid.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,7 +44,8 @@
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-
+extern USBD_HandleTypeDef hUsbDeviceFS;
+uint8_t report = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -99,8 +100,10 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    report ^= 0x01;
+    USBD_HID_SendReport(&hUsbDeviceFS, &report, 1);
+    HAL_Delay(500);
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
