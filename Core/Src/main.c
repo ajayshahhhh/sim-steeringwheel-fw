@@ -18,12 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "stm32f4xx_hal_gpio.h"
 #include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "../../Middlewares/ST/STM32_USB_Device_Library/Class/CustomHID/Inc/usbd_customhid.h"
+#include "usbd_customhid.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -47,7 +46,7 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 extern USBD_HandleTypeDef hUsbDeviceFS;
 uint8_t report = 0;
-volatile int32_t enc1_count = 0x800
+volatile int32_t enc1_count = 0x800;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -60,8 +59,8 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
-  if(GPIO_Pin == ENC1_CLK_GPIO_Port){
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+  if(GPIO_Pin == ENC1_CLK_Pin){
     if (HAL_GPIO_ReadPin(ENC1_DT_GPIO_Port, ENC1_DT_Pin) == GPIO_PIN_SET) enc1_count++;
     else enc1_count--;
   }
