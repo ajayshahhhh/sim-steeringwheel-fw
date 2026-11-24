@@ -32,7 +32,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define ENC1_CW   (1 << 0)   // bit 0 → Button 1
+#define ENC1_CCW  (1 << 1)   // bit 1 → Button 2
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -45,8 +46,8 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 extern USBD_HandleTypeDef hUsbDeviceFS;
-uint8_t report = 0;
-volatile int32_t enc1_count = 0x800;
+volatile uint32_t enc1_cw_received = 0;
+volatile uint32_t enc1_ccw_received = 0;
 
 /* USER CODE END PV */
 
@@ -77,11 +78,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
       subcount = 0; 
     }
     else if (now == 0b11 && subcount == 4){
-      enc1_count++;
+      enc1_cw_received++;
       subcount = 0;
     }
     else if (now == 0b11 && subcount == -4){
-      enc1_count--;
+      enc1_ccw_received++;
       subcount = 0;
     }
     prev = now;
@@ -122,13 +123,35 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
-
+  uint32_t enc1_cw_sent = 0;
+  uint32_t enc1_ccw_sent = 0;
+  uint8_t report = 0x00;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
-  {
+  { 
+    /* Set ENC1 Values in USB Report */
+    if(enc1_cw_sent != enc1_cw_received){
+      report |= ENC1_CW;
+      enc1_cw_sent++;
+    }
+    else if(enc1_ccw_sent != enc1_ccw_received){
+      report |= ENC1_CCW;
+      enc1_ccw_sent++;
+    }
+    
+    
+    uint32_t start_time = HAL_GetTick();
+    while (HAL_GetTick()-start_time < 50 ){
+      USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, &report, 1);
+    }
+
+    /* Reset ENC1 Values back to 0 */
+    report &= (~ENC1_CW);
+    report &= (~ENC1_CCW);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
