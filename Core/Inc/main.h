@@ -70,6 +70,7 @@ void Error_Handler(void);
 #define ENC1_CLK_EXTI_IRQn EXTI4_IRQn
 #define ENC1_DT_Pin GPIO_PIN_5
 #define ENC1_DT_GPIO_Port GPIOC
+#define ENC1_DT_EXTI_IRQn EXTI9_5_IRQn
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
