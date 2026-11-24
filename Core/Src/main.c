@@ -32,8 +32,15 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+/* Rotational Encoder 1 Defs */
 #define ENC1_CW   (1 << 0)   // bit 0 → Button 1
 #define ENC1_CCW  (1 << 1)   // bit 1 → Button 2
+
+/* Rotational Encoder 2 Defs */
+#define ENC2_CW   (1 << 2)   // bit 2 → Button 3
+#define ENC2_CCW  (1 << 3)   // bit 3 → Button 4
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,8 +53,13 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 extern USBD_HandleTypeDef hUsbDeviceFS;
+/* Rotational Encoder 1 PVs */
 volatile uint32_t enc1_cw_received = 0;
 volatile uint32_t enc1_ccw_received = 0;
+
+/* Rotational Encoder 2 PVs */
+volatile uint32_t enc2_cw_received = 0;
+volatile uint32_t enc2_ccw_received = 0;
 
 /* USER CODE END PV */
 
@@ -62,16 +74,18 @@ static void MX_USART2_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+  static const int8_t debounce_table[16] = {
+                    /* now = 00  now = 01  now = 10  now = 11 */
+    /* prev = 00 */ 0,   -1,    +1,   0,
+    /* prev = 01 */+1,    0,     0,  -1,
+    /* prev = 10 */-1,    0,    0, +1,
+    /* prev = 11 */0,  +1,   -1,  0
+    };
+
   if(GPIO_Pin == ENC1_CLK_Pin || GPIO_Pin == ENC1_DT_Pin){
     static uint8_t prev = 0b11;
-    static int8_t subcount = 0x00; 
-    static const int8_t debounce_table[16] = {
-                  /* now = 00  now = 01  now = 10  now = 11 */
-      /* prev = 00 */ 0,   -1,    +1,   0,
-      /* prev = 01 */+1,    0,     0,  -1,
-      /* prev = 10 */-1,    0,    0, +1,
-      /* prev = 11 */0,  +1,   -1,  0
-    };
+    static int8_t subcount = 0x00;
+
     uint8_t now = HAL_GPIO_ReadPin(ENC1_CLK_GPIO_Port, ENC1_CLK_Pin) << 1 | HAL_GPIO_ReadPin(ENC1_DT_GPIO_Port, ENC1_DT_Pin);
     subcount += debounce_table[(prev << 2) | (now)];
     if (now == 0b11 && subcount != 4 && subcount != -4){
@@ -83,6 +97,26 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
     }
     else if (now == 0b11 && subcount == -4){
       enc1_ccw_received++;
+      subcount = 0;
+    }
+    prev = now;
+  }
+
+  if(GPIO_Pin == ENC2_CLK_Pin || GPIO_Pin == ENC2_DT_Pin){
+    static uint8_t prev = 0b11;
+    static int8_t subcount = 0x00;
+
+    uint8_t now = HAL_GPIO_ReadPin(ENC2_CLK_GPIO_Port, ENC2_CLK_Pin) << 1 | HAL_GPIO_ReadPin(ENC2_DT_GPIO_Port, ENC2_DT_Pin);
+    subcount += debounce_table[(prev << 2) | (now)];
+    if (now == 0b11 && subcount != 4 && subcount != -4){
+      subcount = 0; 
+    }
+    else if (now == 0b11 && subcount == 4){
+      enc2_cw_received++;
+      subcount = 0;
+    }
+    else if (now == 0b11 && subcount == -4){
+      enc2_ccw_received++;
       subcount = 0;
     }
     prev = now;
@@ -125,6 +159,10 @@ int main(void)
   /* USER CODE BEGIN 2 */
   uint32_t enc1_cw_sent = 0;
   uint32_t enc1_ccw_sent = 0;
+
+  uint32_t enc2_cw_sent = 0;
+  uint32_t enc2_ccw_sent = 0;
+
   uint8_t report = 0x00;
   /* USER CODE END 2 */
 
@@ -141,6 +179,16 @@ int main(void)
       report |= ENC1_CCW;
       enc1_ccw_sent++;
     }
+
+    /* Set ENC2 Values in USB Report */
+    if(enc2_cw_sent != enc2_cw_received){
+      report |= ENC2_CW;
+      enc2_cw_sent++;
+    }
+    else if(enc2_ccw_sent != enc2_ccw_received){
+      report |= ENC2_CCW;
+      enc2_ccw_sent++;
+    }
     
     
     uint32_t start_time = HAL_GetTick();
@@ -151,6 +199,10 @@ int main(void)
     /* Reset ENC1 Values back to 0 */
     report &= (~ENC1_CW);
     report &= (~ENC1_CCW);
+
+    /* Reset ENC2 Values back to 0 */
+    report &= (~ENC2_CW);
+    report &= (~ENC2_CCW);
 
     /* USER CODE END WHILE */
 
@@ -258,12 +310,6 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : B1_Pin */
-  GPIO_InitStruct.Pin = B1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
-
   /*Configure GPIO pin : LD2_Pin */
   GPIO_InitStruct.Pin = LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -277,12 +323,21 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : ENC2_DT_Pin ENC2_CLK_Pin */
+  GPIO_InitStruct.Pin = ENC2_DT_Pin|ENC2_CLK_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(ENC1_CLK_EXTI_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(ENC1_CLK_EXTI_IRQn);
 
   HAL_NVIC_SetPriority(ENC1_DT_EXTI_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(ENC1_DT_EXTI_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
